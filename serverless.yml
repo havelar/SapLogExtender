@@ -1,0 +1,22 @@
+service: SapLogProcess
+
+provider:
+  name: aws
+  stage: ${opt:stage,'dev'}
+  runtime: python3.7
+  region: us-east-1
+  lambdaHashingVersion: 20201221
+  apiName: SapLogProcess
+  deploymentBucket:
+    name: henrique-serverless-deploys
+
+package:
+  patterns:
+    - '!**'
+    - 'application/**/*.py'
+
+functions:
+  - ${file(serverless/function.yml)}
+
+resources:
+  - ${file(serverless/role.yml)}

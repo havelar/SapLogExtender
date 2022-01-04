@@ -1,0 +1,30 @@
+Process:
+  handler: application/process.main
+  name: Sap-Process
+  description: Process the Logs and generate a clear one
+  memorySize: 512
+  timeout: 30
+  role: SapRole
+  environment:
+    BUCKET_NAME: sap-logs-stash
+  events:
+    - http:
+        path: sap/process
+        method: POST
+        cors: true
+
+PreSignedUrl:
+  handler: application/preSignedUrl.main
+  name: Pre-Signed-Url
+  description: Retrieve a Pre-Signed-Url that allows upload of a file.
+  memorySize: 128
+  timeout: 10
+  role: SapRole
+  environment:
+    BUCKET_NAME: sap-logs-stash
+    EXPIRES_IN: 120
+  events:
+    - http:
+        path: sap/getPreSignedUrl
+        method: GET
+        cors: true

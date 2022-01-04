@@ -1,0 +1,38 @@
+Resources:
+  SapRole:
+    Type: AWS::IAM::Role
+    Properties:
+        RoleName: SapRole
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          
+        Policies:
+          - PolicyName: S3Access
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+              - Effect: 'Allow'
+                Action:
+                  - "s3:ListBucket"
+                  - "s3:GetBucketLocation"
+                Resource:
+                  - '*'
+
+              - Effect: 'Allow'
+                Action:
+                  - "s3:ListBucket"
+                  - "s3:DeleteObject"
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:PutObjectAcl"
+                Resource:
+                  - "arn:aws:s3:::henrique-serverless-deploys/*"
+                  - "arn:aws:s3:::sap-logs-stash/*"

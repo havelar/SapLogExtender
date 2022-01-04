@@ -1,0 +1,83 @@
+<html>
+    <body>
+        <form enctype="multipart/form-data" method="post" name="submitLogFile" id="form">
+            <input type="file" name="file" id="fileInput"/>
+            <input type="submit" target=logSubmit value="Submit" />
+        </form>
+        <p id="log"> Select a ".zip" or a ".txt" log file and then click Submit.</p>
+    </body>
+</html>
+
+<script>
+
+    function logSubmit(event) {
+        let file_log = document.getElementById("fileInput").files[0];
+        const file_name = file_log.name.replaceAll(' ', '_')
+        url = "https://a0aan75lri.execute-api.us-east-1.amazonaws.com/dev/sap/getPreSignedUrl?file_name=" + file_name
+
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open("GET", url, false); // true for asynchronous 
+        xmlHttp.send(null);
+
+        signed_post = JSON.parse(xmlHttp.responseText);
+        uploadS3(signed_post, file_log, file_name);
+
+        event.preventDefault();
+    }
+
+    function uploadS3(signed_post, file, file_name) {
+        var data = new FormData();
+        for ( var key in signed_post.fields ) {
+            data.append(key, signed_post.fields[key]);
+        }
+        data.append("file", file, file_name);
+
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open("POST", signed_post.url, false); // true for asynchronous
+        xmlHttp.send(data);
+
+        log.textContent = 'File uploaded! Now processing ...';
+
+        processFile(file_name)
+    }
+
+    function processFile(file_name) {
+        var myHeaders = new Headers();
+        myHeaders.append("Content-Type", "application/json");
+
+        var raw = JSON.stringify({
+            "file_name": file_name
+        });
+
+        var requestOptions = {
+            method: 'POST',
+            headers: myHeaders,
+            body: raw,
+            redirect: 'follow'
+        };
+
+        fetch("https://a0aan75lri.execute-api.us-east-1.amazonaws.com/dev/sap/process", requestOptions)
+            .then(response => response.json())
+            .then(result => downloadFile(result['presigned_url']))
+            .catch(error => console.log('error', error));
+    }
+
+    function downloadFile(link) {
+        var element = document.createElement('a');
+        element.setAttribute('href', link);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+
+        log.textContent('Downloaded!')
+    }
+
+    const form = document.getElementById('form');
+    const log = document.getElementById('log');
+    form.addEventListener('submit', logSubmit);
+
+</script>
