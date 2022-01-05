@@ -50,10 +50,7 @@ else:
         return isinstance(f, io.IOBase)
 
 
-try:
-    import wcwidth  # optional wide-character (CJK) support
-except ImportError:
-    wcwidth = None
+wcwidth = None
 
 try:
     from html import escape as htmlescape

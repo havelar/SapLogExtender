@@ -7,21 +7,25 @@ BUCKET_NAME = os.environ.get('BUCKET_NAME', 'sap-logs-stash')
 
 def getObject(file_name):
     s3 = boto3.resource('s3')
-    
 
     obj = s3.Object(BUCKET_NAME, f"raw/{file_name}")
 
     file_io = BytesIO(obj.get()['Body'].read())
 
+    files_text = []
+    files_name = []
     if file_name.endswith('.zip'):
-        zipfile = ZipFile(file_io)
-        f_name = zipfile.namelist()[0]
-        file_text = zipfile.open(f_name).read().decode()
-        file_name = file_name.replace('.zip', '.txt')
+        zipfile = ZipFile(file_io, 'r')
+        for f_name in zipfile.namelist():
+            f_text =  zipfile.open(f_name).read().decode()
+
+            files_text.append(f_text)
+            files_name.append(f_name)
     else:
-        file_text = file_io.read().decode()
+        files_text.append(file_io.read().decode())
+        files_name.append(file_name)
     
-    return file_text, file_name
+    return files_text, files_name
 
 def putObject(zipFileIO, file_name):
     s3_resource = boto3.resource('s3')

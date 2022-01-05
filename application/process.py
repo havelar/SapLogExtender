@@ -1,10 +1,11 @@
 from application.src.formatResponse import format_response
 from application.src.S3Object import getObject, putObject
 from application.src.RouteError import RouteError
+from application.src.Zipfile import ZipFile
 from application.src.chunks import chunks
 from application.src.table import Table
-from application.src.io import buildZip
 
+from io import BytesIO
 import traceback
 import json
 import re
@@ -17,75 +18,88 @@ def main(event, context):
         if not isinstance(params, dict):
             params = json.loads(params)
 
-        file_name = params["file_name"]
+        main_file_name = params["file_name"]
 
-        file_text, file_name = getObject(file_name)
-        
-        splitted_tables = file_text.split('Log created on')
+        files_text, files_name = getObject(main_file_name)
 
-        ## Top File Header
-        file_header = splitted_tables.pop(0)
-        
-        ## Build headers
-        headers = splitted_tables[0].split('\n', 6)[:6]
-        date = headers[0].strip()
+        ## Open and creates the Zip File in Memory
+        zip_IO = BytesIO()
+        zipFile = ZipFile(zip_IO)
 
-        information = headers[2].split()
-        if len(information) == 1: information = ''
-        else: information = information[-1]
-        
-        warnings = headers[3].split()
-        if len(warnings) == 1: warnings = ''
-        else: warnings = warnings[-1]
-        
-        errors = headers[4].split()
-        if len(errors) == 1: errors = ''
-        else: errors = errors[-1]
-        
-        totals = headers[5].split()
-        if len(totals) == 1: totals = ''
-        else: totals = totals[-1]
+        for file_text, file_name in zip(files_text, files_name):
 
-        headers = {
-            'date': date,
-            'information': information,
-            'warnings': warnings,
-            'errors': errors,
-            'totals': totals
-        }
-        
-        every_tables = []
-        for table_ind, table in enumerate(splitted_tables):
-            table_lines = table.split('\n')
+            splitted_tables = file_text.split('Log created on')
+
+            ## Top File Header
+            file_header = splitted_tables.pop(0)
             
-            columns = [
-                'Exc.', 'Msg.typ', 'Application Area', 'MsgNo', 'Number', 'Numer.',
-                'Order', 'Seq.', 'OpAc',
-                'Message Text'
-            ]
+            ## Build headers
+            headers = splitted_tables[0].split('\n', 6)[:6]
+            date = headers[0].strip()
+
+            information = headers[2].split()
+            if len(information) == 1: information = ''
+            else: information = information[-1]
             
-            ## Table values start at line 12: '|---- ...|'
-            rows = chunks(table_lines[12:], 3) # A single row is divided in 3 rows
+            warnings = headers[3].split()
+            if len(warnings) == 1: warnings = ''
+            else: warnings = warnings[-1]
             
-            every_values = []
-            for row in rows:
-                row = ''.join(row).replace('|', '')
-                values = [v.group(1) for v in colsRgx.finditer(row)]
-                if values:
-                    values[0] = ''
-                    values.insert(7, '')
-                    values.insert(7, '')
-                    every_values.append(values)
+            errors = headers[4].split()
+            if len(errors) == 1: errors = ''
+            else: errors = errors[-1]
+            
+            totals = headers[5].split()
+            if len(totals) == 1: totals = ''
+            else: totals = totals[-1]
+
+            headers = {
+                'date': date,
+                'information': information,
+                'warnings': warnings,
+                'errors': errors,
+                'totals': totals
+            }
+            
+            every_tables = []
+            for table_ind, table in enumerate(splitted_tables):
+                table_lines = table.split('\n')
                 
-            if table_ind == len(splitted_tables)-1:
-                every_values = every_values[:-2]
+                columns = [
+                    'Exc.', 'Msg.typ', 'Application Area', 'MsgNo', 'Number', 'Numer.',
+                    'Order', 'Seq.', 'OpAc',
+                    'Message Text'
+                ]
+                
+                ## Table values start at line 12: '|---- ...|'
+                rows = chunks(table_lines[12:], 3) # A single row is divided in 3 rows
+                
+                every_values = []
+                for row in rows:
+                    row = ''.join(row).replace('|', '')
+                    values = [v.group(1) for v in colsRgx.finditer(row)]
+                    if values:
+                        values[0] = ''
+                        values.insert(7, '')
+                        values.insert(7, '')
+                        every_values.append(values)
                     
-            table = Table(headers, columns, every_values)
-            every_tables.append(table)
+                if table_ind == len(splitted_tables)-1:
+                    every_values = every_values[:-2]
+                        
+                table = Table(headers, columns, every_values)
+                every_tables.append(table)
 
-        zipFileIO = buildZip(file_header, every_tables, file_name)
+            
+            final_table = every_tables.pop(0)
+            for table in every_tables:
+                final_table.values.extend(table.values)
 
-        presigned_url = putObject(zipFileIO, file_name)
+            final_text = file_header + final_table.tab()
+            zipFile.writestr(file_name, final_text)
+
+        zipFile.close()
+        presigned_url = putObject(zip_IO, main_file_name)
 
         response = format_response(
             {

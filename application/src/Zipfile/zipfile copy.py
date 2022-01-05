@@ -1051,7 +1051,7 @@ class ZipFile:
     fp = None                   # Set here since __del__ checks it
     _windows_illegal_name_trans_table = None
 
-    def __init__(self, file, mode="w", compression=ZIP_DEFLATED, allowZip64=True):
+    def __init__(self, file, mode="r", compression=ZIP_STORED, allowZip64=True):
         """Open the ZIP file with mode read 'r', write 'w', exclusive create 'x',
         or append 'a'."""
         if mode not in ('r', 'w', 'x', 'a'):
